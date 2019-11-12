@@ -15,13 +15,19 @@ int main(){
 		//printf("%d\t", sum);read = sum;
 		scanf("%d", &read);
 		if(i == 1 && sum == 0){//se o primeiro for zero
-			sum = -sinal(read);
+			if(read >= 0){
+				sum = -1;
+			}else{
+				sum = 1;
+			}
 			alt = 1;
 		}
+		//if(i == 1)printf("%d ", sum);
 		int tosum = -sinal(sum) -sum - read;
 		if(sum + read != 0){
 			if(sinal(sum) != sinal(sum + read)){
 				sum += read;
+				//printf("%d ", read);
 				continue;
 			}
 		}else{
@@ -30,6 +36,8 @@ int main(){
 		//printf("alt%d ", alt);
 		alt += abs(tosum);
 		sum += tosum + read;
+		//printf("%d ", read + tosum);
+
 	}
 	printf("%lld\n", alt);
 }

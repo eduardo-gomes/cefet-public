@@ -149,7 +149,6 @@ void p1anda(){
 	}
 }
 void procentrada(char ent){
-	printf("%c", ent);
 	if(ent == 's'){
 		p1dire.x = 0;
 		p1dire.y = 1;

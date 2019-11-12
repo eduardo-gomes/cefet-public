@@ -32,3 +32,5 @@
 *.app
 #
 SyncToy*
+inp
+.vscode/launch.json

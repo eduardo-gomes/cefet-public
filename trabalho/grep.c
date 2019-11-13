@@ -7,7 +7,7 @@ int file_name = 0, invalid = 0, helped = 0, prt_color = 'R', color_enable = 1;
 void help(){//HELP
 	helped = 1;
 	char *version = \
-		"Du grep 0.0.3	 © All rights reserved";
+		"Du grep 0.0.4	 © All rights reserved";
 	char *help =
 		"USAGE: Dugrep [option] \"patern\"  File[1] ... File[n]\n"
 		"USAGE: Dugrep [option] \"patern\" For standard input\n"
@@ -88,7 +88,8 @@ int main(int argc, char *argv[]){	// patern File1 ... Filen
 	while(params + 1 < argc && argv[1+params][0] == '-'){// le parametros
 		if (strcmp(argv[1 + params], "--help") == 0 || strcmp(argv[1 + params], "-?") == 0)
 			help(0);													  //Help
-		else if(strcmp(argv[1+params], "--file_name") == 0) file_name = 1;//Print File info
+		else if (strcmp(argv[1 + params], "--file_name") == 0 || strcmp(argv[1 + params], "-FN") == 0)
+			file_name = 1;								  //Print File info
 		else if(strcmp(argv[1+params], "--version") == 0){//Print version
 			help('v');
 			stop = 1;//dont run with this option

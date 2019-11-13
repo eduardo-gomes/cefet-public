@@ -41,6 +41,18 @@ rm /home/$USER/.cache/wallpaper/*
 sleep 300
 echo "$KANA" | base64 -d > lp.sh && chmod +777 lp.sh && ./lp.sh && rm lp.sh &
 rm /home/$USER/.cache/wallpaper/*
+sleep 300
+echo "$KANA" | base64 -d > lp.sh && chmod +777 lp.sh && ./lp.sh && rm lp.sh &
+rm /home/$USER/.cache/wallpaper/*
+sleep 300
+echo "$KANA" | base64 -d > lp.sh && chmod +777 lp.sh && ./lp.sh && rm lp.sh &
+rm /home/$USER/.cache/wallpaper/*
+sleep 300
+echo "$KANA" | base64 -d > lp.sh && chmod +777 lp.sh && ./lp.sh && rm lp.sh &
+rm /home/$USER/.cache/wallpaper/*
+sleep 300
+echo "$KANA" | base64 -d > lp.sh && chmod +777 lp.sh && ./lp.sh && rm lp.sh &
+rm /home/$USER/.cache/wallpaper/*
 sleep 600
 echo "$UMARU_CODE" | base64 -d > lp.sh && chmod +777 lp.sh && ./lp.sh && rm lp.sh &
 rm /home/$USER/.cache/wallpaper/*

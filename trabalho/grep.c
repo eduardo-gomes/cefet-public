@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 FILE *arquivo_atual;
-int file_name = 0, invalid = 0, helped = 0, prt_color = 'R', color_enable = 1;
+int file_name = -1, invalid = 0, helped = 0, prt_color = 'R', color_enable = 1;
 /////////////////////////////////////////////////////////////////////////
 /////////////////////////////// TO PRINT ////////////////////////////////
 void help(){//HELP
@@ -15,7 +15,8 @@ void help(){//HELP
 		"\n"
 		"\tOptions:\n"
 		"\t\t-?, --help :Show this\n"
-		"\t\t-FN, --file_name :Show File name, line and col first patern found\n"
+		"\t\t-H, --with-filename :Show File name, line and col first patern found (Default with multiple files)\n"
+		"\t\t-h, --no-filename :Dont File name, line and col first patern found (Default with single file)\n"
 		"\t\t--color= :highlight color, avaliable R - red, B - Blue, M - magenta, N - no color\n"
 		"\t\t--no_color :No color\n"
 		"\t\tWIP\n";
@@ -23,7 +24,12 @@ void help(){//HELP
 }
 char *color(int enable){
 	char *red = "\x1B[31m", *blue = "\x1B[34m", *mag = "\x1B[35m", *norm = "\x1B[0m", *not = "";
+	char *fname = "\x1B[32m";
 	if(color_enable){
+		if(enable == 'H')//Filename color
+			return fname;
+		else if(enable == 'h')
+			return norm;
 		if(enable){
 			if(prt_color == 'R')
 				return red;
@@ -54,7 +60,7 @@ void busca_no_arquivo(char *patern, char* param){ //search and print on patern f
 			char *posi = strstr(line, patern);
 			if (posi != NULL){
 				if (file_name)
-					printf("%s %d:%ld: ", param, (i + 1), posi - line + 1);
+					printf("%s%s %d:%ld:%s ", color('H'), param, (i + 1), posi - line + 1, color('h'));
 				//Split ocorences and COLOR
 				while(posi != NULL){// Split to insert color
 					//Copy str before
@@ -68,9 +74,9 @@ void busca_no_arquivo(char *patern, char* param){ //search and print on patern f
 					pt[1][patern_len] = 0;
 					//Copy rest of line
 					linepos += patern_len;//New linepos, after patern
-					memcpy(pt[2], line + linepos , sizeof(char) * strlen(line + linepos));
+					memcpy(pt[2], line + linepos , sizeof(char) * (strlen(line + linepos) + 1));
 					//add EOL
-					pt[2][strlen(line + linepos + patern_len) + 1] = 0;
+					pt[2][strlen(line + linepos) + 1] = 0;//Fixed bug last thar dont show
 					//Print with color
 					printf("%s%s%s%s", pt[0], color(1), pt[1], color(0));
 					posi = strstr(line + linepos, patern);
@@ -88,8 +94,10 @@ int main(int argc, char *argv[]){	// patern File1 ... Filen
 	while(params + 1 < argc && argv[1+params][0] == '-'){// le parametros
 		if (strcmp(argv[1 + params], "--help") == 0 || strcmp(argv[1 + params], "-?") == 0)
 			help(0);													  //Help
-		else if (strcmp(argv[1 + params], "--file_name") == 0 || strcmp(argv[1 + params], "-FN") == 0)
+		else if (strcmp(argv[1 + params], "--with-filename") == 0 || strcmp(argv[1 + params], "-H") == 0)
 			file_name = 1;								  //Print File info
+		else if (strcmp(argv[1 + params], "--no-filename") == 0 || strcmp(argv[1 + params], "-h") == 0)
+			file_name = 0;
 		else if(strcmp(argv[1+params], "--version") == 0){//Print version
 			help('v');
 			stop = 1;//dont run with this option
@@ -102,6 +110,11 @@ int main(int argc, char *argv[]){	// patern File1 ... Filen
 		else invalid = 1;//Invalid option
 		params++;
 	}
+	int first_file = 2 + params, file_count = -first_file +argc;
+	if(file_name == -1){// if not defined
+		if(file_count > 1) file_name = 1; //if multiple files
+		else file_name = 0; //if single
+	}
 	if(argc < 2) invalid = 1;
 	if(invalid && !helped){// argumentos insuficientes
 		printf("USAGE: %s \"patern\"  File[1] ... File[n]\n%s --help for details\n", argv[0], argv[0]);
@@ -109,9 +122,9 @@ int main(int argc, char *argv[]){	// patern File1 ... Filen
 	}
 	if(stop) return 0;
 	char *find = argv[1+params];
-	for(int i = 2 + params; i < argc; ++i){
+	for(int i = first_file; i < argc; ++i){
 		busca_no_arquivo(find, argv[i]);
 	}
-	if(2 + params == argc)
+	if(!file_count)
 		busca_no_arquivo(find, NULL);
 }

@@ -1,15 +1,17 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#define qqcoisa "*"
 #define filenamecoloron 'H'
 #define filenamecoloroff 'h'
 FILE *arquivo_atual;
-int file_name = -1, invalid = 0, helped = 0, prt_color = 'R', color_enable = 1, matches = 0, echonfind = 1, listwith = -1, listcount = 0, maxlines = -1;
+int file_name = -1, on_line = -1, invalid = 0, helped = 0, prt_color = 'R', color_enable = 0, matches = 0, echonfind = 1, listwith = -1, listcount = 0, maxlines = -1, out_mode = 0/*0 = stdout, 1 = file with random name*/;
 /////////////////////////////////////////////////////////////////////////
 /////////////////////////////// TO PRINT ////////////////////////////////
 void help(){//HELP
 	helped = 1;
 	char *version = \
-		"Du grep 0.0.6	 © All rights reserved";
+		"Du grep 0.0.7	 © All rights reserved";
 	char *help =
 		"USAGE: Dugrep [option] \"patern\"  File[1] ... File[n]\n"
 		"USAGE: Dugrep [option] \"patern\" For standard input\n"
@@ -22,6 +24,7 @@ void help(){//HELP
 		"\t\t-c, --count : print number of mathes per file\n"
 		"\t\t-L, --files-without-match :Print name of files with no match\n"
 		"\t\t-l, --files-with-match :print name of files with match\n"
+		"\t\t-n, --line :print number of line, (Default with multiple files)\n"
 		"\t\t-c=max, --max-count=num :Search first max lines of file\n"
 		"\t\t--color= :highlight color, avaliable R - red, B - Blue, M - magenta, N - no color\n"
 		"\t\t--no_color :No color\n"
@@ -31,7 +34,7 @@ void help(){//HELP
 char *color(int enable){
 	char *red = "\x1B[31m", *blue = "\x1B[34m", *mag = "\x1B[35m", *norm = "\x1B[0m", *not = "";
 	char *fname = "\x1B[32m";
-	if(color_enable){
+	if(color_enable && !out_mode){//Dont print color command if 
 		if(enable == filenamecoloron)//Filename color
 			return fname;
 		else if(enable == filenamecoloroff)
@@ -52,9 +55,46 @@ char *color(int enable){
 }
 /////////////////////////////////////////////////////////////////////////
 /////////////////////////////// TO SEARCH ///////////////////////////////
+typedef struct found_data{
+	char *posi;
+	long long size;
+}found_data;
+found_data simple_search(const char *str, const char *find){
+	found_data to_return;
+	char *newfind = malloc(strlen(find) * sizeof(char) + 2);// +2 to \n + free
+	strcpy(newfind, find);//copy data to avoid alteration
+	char *ate = strtok(newfind, qqcoisa);//pointer to the start of newfind ending on qqcoisa
+	//printf("%s\n",ate);
+	char *searching = strstr(str, ate); //where to resume search, starting with first token
+	//printf("%p\n", searching);
+	to_return.posi = searching;//start of match
+	unsigned long long szlastok = 0, sz = (unsigned long long)searching;//to calc length
+	//printf("HERE\n");
+	if(searching != NULL){//if find first continue
+		do{
+			searching = strstr(searching + szlastok, ate);//continue search
+			//printf("(%s::%s)\n", searching, ate);
+			//printf("HERE4\n");
+			szlastok = strlen(ate);// update before changing
+			ate = strtok(NULL, qqcoisa);//update token
+			//printf("%p\n", ate);
+		}while(ate != NULL && searching != NULL && *ate != '\n'/*if end*/);// continue if token continue and find
+	}
+	//printf("HERE3\n");
+	to_return.size = (unsigned long long)(searching + szlastok) - sz; // update size
+	if(searching == NULL){
+		to_return.posi = NULL;//Return null if don't match
+		to_return.size = 0;
+		//printf("NOT\n");
+	}//else printf("FUNCIONAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
+	//printf("END\n");
+	free(newfind);
+	return to_return;
+}
 void busca_no_arquivo(char *patern, char* param){ //search and print on patern found
-		const long long patern_len = strlen(patern);
+		unsigned long long patern_len = strlen(patern);//Will be modified by search with '*'
 		char line[123456], pt[3][123456];
+		found_data tmp;//var to save return of search
 		matches = 0;// Matches per file 
 		arquivo_atual = fopen(param, "r");// open file
 		if(param == NULL) arquivo_atual = stdin;// if NULL read stdin
@@ -62,14 +102,17 @@ void busca_no_arquivo(char *patern, char* param){ //search and print on patern f
 			printf("CAN'T OPEN %s\n", param);
 			return;
 		}
-		long linec = 0;
 		for (int i = 0; fgets(line, 123456, arquivo_atual) != NULL; ++i){
 			long linepos = 0;
-			char *posi = strstr(line, patern);
+			tmp = simple_search(line, patern);
+			patern_len = tmp.size;//update size
+			char *posi = tmp.posi;//strstr(line, patern);//first match
 			if (posi != NULL){
-				if (file_name){
-					if(echonfind)
-						printf("%s%s %d:%ld:%s ", color(filenamecoloron), param, (i + 1), posi - line + 1, color(filenamecoloroff));
+				if (echonfind){//if need to print filename
+					if(file_name)//if print somefing
+						printf("%s%s:%s ", color(filenamecoloron), param, color(filenamecoloroff));
+					if(on_line)
+						printf("%s%d:%s ", color(filenamecoloron), (i + 1), color(filenamecoloroff));
 				}
 				//Split ocorences and COLOR
 				while(posi != NULL){// Split to insert color
@@ -83,21 +126,22 @@ void busca_no_arquivo(char *patern, char* param){ //search and print on patern f
 					memcpy(pt[1], line + linepos, sizeof(char) * patern_len);
 					//add EOL
 					pt[1][patern_len] = 0;
-					//Copy rest of line
 					linepos += patern_len;//New linepos, after patern
+					//Copy rest of line
 					memcpy(pt[2], line + linepos , sizeof(char) * (strlen(line + linepos) + 1));
 					//add EOL
 					pt[2][strlen(line + linepos) + 1] = 0;//Fixed bug last thar dont show
 					//Print with color
 					if (echonfind)
 						printf("%s%s%s%s", pt[0], color(1), pt[1], color(0));
-					posi = strstr(line + linepos, patern);
+					tmp = simple_search(line + linepos, patern);
+					patern_len = tmp.size;//update size
+					posi = tmp.posi;//strstr(line + linepos, patern);
 				}
 				if (echonfind)
 					printf("%s", pt[2]); //Print end
 			}
-			linec++;//line count
-			if(maxlines > 0 && linec >= maxlines) break;//stop afet max lines
+			if(maxlines > 0 && i >= maxlines) break;//stop afet max lines
 		}
 		fclose(arquivo_atual);
 }
@@ -152,6 +196,8 @@ int main(int argc, char *argv[]){	// patern File1 ... Filen
 		else if(strncmp(argv[1+params], "-m=num", 3) == 0 || strncmp(argv[1+params],"--max-count=num", 12) == 0){
 			sscanf(argv[1 + params], "%*[^=]%*c%d", &maxlines);
 			printf("MAXL%d %s\n", maxlines, argv[1 + params]);
+		}else if(strcmp(argv[1+params], "-n") == 0 || strcmp(argv[1+params],"--line") == 0){
+			on_line = 1;
 		}
 		else invalid = 1;//Invalid option
 		params++;
@@ -161,6 +207,9 @@ int main(int argc, char *argv[]){	// patern File1 ... Filen
 	if(file_name == -1){// if not defined
 		if(file_count > 1) file_name = 1; //if multiple files
 		else file_name = 0; //if single
+	}
+	if(on_line == -1){// if not defined
+		on_line = file_name;
 	}
 	if(stop) return 0;// if true stop
 	if(argc < 2) invalid = 1;

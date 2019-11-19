@@ -2,12 +2,15 @@
 #define _GNU_SOURCE
 #include <string.h>
 #include <stdlib.h>
+#include <dirent.h>
+#include <time.h>
+//#include <errno.h>
 #define qqcoisa "*"
 #define LINESZ 123456
 #define filenamecoloron 'H'
 #define filenamecoloroff 'h'
 FILE *arquivo_atual;
-int file_name = -1, on_line = -1, invalid = 0, helped = 0, prt_color = 'R', color_enable = 0, matches = 0, echonfind = 1, listwith = -1, listcount = 0, maxlines = -1, out_mode = 0/*0 = stdout, 1 = file with random name*/, case_sensitive = 1;
+int file_name = -1, on_line = -1, invalid = 0, helped = 0, prt_color = 'R', color_enable = 0, matches = 0, echonfind = 1, listwith = -1, listcount = 0, maxlines = -1, out_mode = 0/*0 = stdout, 1 = file with random name*/, case_sensitive = 1, file_without = 0;
 /////////////////////////////////////////////////////////////////////////
 ///////////////////////////// Define default ////////////////////////////
 void load_du(){
@@ -19,7 +22,7 @@ void load_du(){
 void help(int type){//HELP
 	helped = 1;
 	char *version = \
-		"Du grep 0.0.8	 © All rights reserved";
+		"Du grep 0.1.0	 © All rights reserved";//nope
 	char *help =
 		"USAGE: Dugrep [option] \"patern\"  File[1] ... File[n]\n"
 		"USAGE: Dugrep [option] \"patern\" For standard input\n"
@@ -35,7 +38,8 @@ void help(int type){//HELP
 		"\t\t-l, --files-with-match :print name of files with match\n"
 		"\t\t-n, --line :print number of line, (Default with multiple files)\n"
 		"\t\t-i, --case_insensitive :do search case insensitive(Default off)\n"
-		"\t\t-c=max, --max-count=num :Search first max lines of file\n"
+		"\t\t-d, --duplicate-without :create a copy of the file without all matches nammed old_file_TIMESTAMP"
+		"\t\t-m=max, --max-count=num :Search first max lines of file\n"
 		"\t\t--color= :highlight color, avaliable R - red, B - Blue, M - magenta, N - no color\n"
 		"\t\t--no_color :No color\n"
 		"\t\tWIP\n";
@@ -48,7 +52,7 @@ void help(int type){//HELP
 char *color(int enable){
 	char *red = "\x1B[31m\x1B[1m", *blue = "\x1B[34m\x1B[1m", *mag = "\x1B[35m\x1B[1m", *norm = "\x1B[0m", *not = "";
 	char *fname = "\x1B[32m";
-	if(color_enable && !out_mode){//Dont print color command if 
+	if(color_enable && !out_mode){//Dont print color command if
 		if(enable == filenamecoloron)//Filename color
 			return fname;
 		else if(enable == filenamecoloroff)
@@ -66,6 +70,46 @@ char *color(int enable){
 			return norm;
 	}else
 		return not;
+}
+/////////////////////////////////////////////////////////////////////////
+////////////////////////////// dir or file //////////////////////////////
+void chama_busca(char* , char*);
+void se_dir_open(char *find, char* diretorio){
+	DIR* dir = opendir(diretorio);//Pointer to dir
+	struct dirent *direntry;//Pointer to something inside dir
+	char arquivo[123456];//string of directory/file
+	if (dir != NULL){//If is directory
+		//arquivo[0] = '\0';//"Clear" string
+		strcpy(arquivo, diretorio);//Set arquivo dir
+		arquivo[strlen(diretorio)] = '/';// add / do open dir+/+file
+		arquivo[strlen(diretorio)+1] = '\0';//Replace EOL
+		char *cont = arquivo + strlen(arquivo);//Pointer to end of directory on string
+		while((direntry = readdir(dir)) != NULL){// If has something inside
+			if(strcmp(direntry->d_name, ".") == 0 || strcmp(direntry->d_name, "..") == 0) continue;//skip (go to upper level and loop), "." ".."
+			strcpy(cont, direntry->d_name);//Add file found to arquivo
+			//printf("%s %s\n", arquivo, cont);
+			se_dir_open(find, arquivo);//Recursion
+			//cont[0] = '\0'; //To continue from here
+		}
+		closedir(dir);
+	}else{//if isn't dir or don exist try to open as file
+		chama_busca(find, diretorio);
+		//printf("FILE %s\n", arquivo);
+	}
+}
+FILE *output;
+void open_without(char *address, int open){
+	if(open){
+		char nfilename[1234];
+		double tatu = time(NULL);
+		sprintf(nfilename, "%s_%.lf", address, tatu);
+		output = fopen(nfilename, "a");
+	}else{
+		fclose(output);
+	}
+}
+void write_without(char *toprint){
+	fprintf(output, "%s", toprint);
 }
 /////////////////////////////////////////////////////////////////////////
 /////////////////////////////// TO SEARCH ///////////////////////////////
@@ -113,19 +157,21 @@ void busca_no_arquivo(char *patern, char* param){ //search and print on patern f
 		unsigned long long patern_len = strlen(patern);//Will be modified by search with '*'
 		char line[LINESZ], pt[3][LINESZ];
 		found_data tmp;//var to save return of search
-		matches = 0;// Matches per file 
+		matches = 0;// Matches per file
 		arquivo_atual = fopen(param, "r");// open file
 		if(param == NULL) arquivo_atual = stdin;// if NULL read stdin
 		if (arquivo_atual == NULL){// if cant open
 			printf("CAN'T OPEN %s\n", param);
 			return;
 		}
+		if(write_without)
+			open_without(param, 1); //Open file to write
 		for (int i = 0; fgets(line, LINESZ, arquivo_atual) != NULL; ++i){
 			long linepos = 0;
 			tmp = simple_search(line, patern);
 			patern_len = tmp.size;//update size
 			char *posi = tmp.posi;//strstr(line, patern);//first match
-			if (posi != NULL){
+			if (posi != NULL){//Found on this line
 				if (echonfind){//if need to print filename
 					if(file_name)//if print somefing
 						printf("%s%s:%s ", color(filenamecoloron), param, color(filenamecoloroff));
@@ -152,15 +198,24 @@ void busca_no_arquivo(char *patern, char* param){ //search and print on patern f
 					//Print with color
 					if (echonfind)
 						printf("%s%s%s%s", pt[0], color(1), pt[1], color(0));
+					if(file_without)//If want to print file without match
+						write_without(pt[0]);//Write before
 					tmp = simple_search(line + linepos, patern);
 					patern_len = tmp.size;//update size
 					posi = tmp.posi;//strstr(line + linepos, patern);
 				}
 				if (echonfind)
 					printf("%s", pt[2]); //Print end
+				if(file_without)//Write after
+					write_without(pt[2]);
+			}else{//Not found
+				if (file_without) //Write line
+					write_without(line);
 			}
-			if(maxlines > 0 && i >= maxlines) break;//stop afet max lines
+			if(maxlines > 0 && i+1 >= maxlines) break;//stop afet max lines
 		}
+		if (write_without)
+			open_without(NULL, 0); //Close file to write
 		fclose(arquivo_atual);
 }
 void files_with_without_matches(int with, char *file){
@@ -220,6 +275,8 @@ int main(int argc, char *argv[]){	// patern File1 ... Filen
 			on_line = 1;
 		}else if(strcmp(argv[1+params], "-i") == 0 || strcmp(argv[1+params],"--case_insensitive") == 0){
 			case_sensitive = 0;
+		}else if(strcmp(argv[1+params], "-d") == 0 || strcmp(argv[1+params],"--duplicate-without") == 0){
+			file_without = 1;
 		}
 		else invalid = 1;//Invalid option
 		params++;
@@ -241,9 +298,14 @@ int main(int argc, char *argv[]){	// patern File1 ... Filen
 	}
 	char *find = argv[1+params];
 	for(int i = first_file; i < argc; ++i){
-		busca_no_arquivo(find, argv[i]);
-		if(listwith != -1) files_with_without_matches(listwith, argv[i]);
+		se_dir_open(find, argv[i]);
+		//busca_no_arquivo(find, argv[i]);
+		//if(listwith != -1) files_with_without_matches(listwith, argv[i]);
 	}
 	if(!file_count)
 		busca_no_arquivo(find, NULL);
+}
+void chama_busca(char* find, char* argv){
+	busca_no_arquivo(find, argv);
+	if(listwith != -1) files_with_without_matches(listwith, argv);
 }

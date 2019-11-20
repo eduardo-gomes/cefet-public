@@ -24,7 +24,7 @@ void load_du(){
 void help(int type){//HELP
 	helped = 1;
 	char *version = \
-		"Du grep 0.1.0	 © All rights reserved";//nope
+		"Du grep 0.1.1	 © All rights reserved";//nope
 	char *help =
 		"USAGE: Dugrep [option] \"patern\"  File[1] ... File[n]\n"
 		"USAGE: Dugrep [option] \"patern\" For standard input\n"

@@ -11,7 +11,8 @@
 #define filenamecoloroff 'h'
 FILE *arquivo_atual;
 int file_name = -1, on_line = -1, invalid = 0, helped = 0, prt_color = 'R', color_enable = 0, echonfind = 1, listwith = -1, listcount = 0, maxlines = -1, out_mode = 0/*0 = stdout, 1 = file with random name*/, case_sensitive = 1, file_without = 0, tcount = 0;
-long long  matches = 0, allmatches = 0;
+long long  matches = 0, allmatches = 0, files_count = 0;
+unsigned long long bytes = 0;
 /////////////////////////////////////////////////////////////////////////
 ///////////////////////////// Define default ////////////////////////////
 void load_du(){
@@ -24,7 +25,7 @@ void load_du(){
 void help(int type){//HELP
 	helped = 1;
 	char *version = \
-		"Du grep 0.1.1	 © All rights reserved";//nope
+		"Du grep 0.1.2	 © All rights reserved";//nope
 	char *help =
 		"USAGE: Dugrep [option] \"patern\"  File[1] ... File[n]\n"
 		"USAGE: Dugrep [option] \"patern\" For standard input\n"
@@ -90,7 +91,7 @@ void change_to(char **var, unsigned long *atu, unsigned long to){
 		}
 	}else return;
 }
-void pt_change(char **pt, unsigned long *atu, unsigned int to){
+void pt_change(char **pt, unsigned long *atu, unsigned long to){
 	if(*atu <= to){
 		*atu = to*2;
 		for(int i = 0; i < 3; ++i){
@@ -99,6 +100,29 @@ void pt_change(char **pt, unsigned long *atu, unsigned int to){
 			ptbackup = realloc(ptbackup, *atu);
 			//printf("%d ed, to %lu\n", i, *atu);
 			if(ptbackup)pt[i] = ptbackup;
+		}
+	}
+}
+int dyn_fgets(char **pt3, unsigned long int *sz, FILE *inp){
+	//long int lsz = *sz;
+	char **pt = pt3;// work like original var
+	char *str = pt3[2];//*pt[3] -> &pt -> ***pt3 -> **pt3[2] -> pt[2]
+	unsigned long int atu_sz = 0;
+	//char *lin = *str;
+	char read;
+	while(1){
+		read = fgetc(inp);
+		if (feof(inp)) return EOF;//End of file
+		if ((atu_sz)*2 > *sz){//At least have double the space
+			//change_to(str, sz, atu_sz * 2);//Realoc to 2*atu_sz//change to alloc 4*atu_sz
+			pt_change(pt, sz, atu_sz*2);	 // up coment "/\"
+			str = pt[2];					 //update
+		}
+		str[atu_sz++] = read;//read to str
+		if(read == '\n' || read == '\0'){//If end of line
+			str[atu_sz] = '\0';//Add null 
+			bytes += atu_sz;
+			return 1;//End of line
 		}
 	}
 }
@@ -112,10 +136,6 @@ void se_dir_open(char *find, char* diretorio){
 	unsigned long arquivo_sz = 16;
 	char *arquivo = malloc(arquivo_sz);
 	if (dir != NULL){//If is directory
-		//arquivo[0] = '\0';//"Clear" string
-		//strcpy(arquivo, diretorio);//Set arquivo dir
-		//arquivo[strlen(diretorio)] = '/';// add / do open dir+/+file
-		//arquivo[strlen(diretorio)+1] = '\0';//Replace EOL
 		size_t dr_sz = strlen(diretorio);
 		change_to(&arquivo, &arquivo_sz, dr_sz);// Change arquivo size
 		sprintf(arquivo, "%s/", diretorio);
@@ -124,8 +144,9 @@ void se_dir_open(char *find, char* diretorio){
 			if(strcmp(direntry->d_name, ".") == 0 || strcmp(direntry->d_name, "..") == 0) continue;//skip (go to upper level and loop), "." ".."
 			change_to(&arquivo, &arquivo_sz, dr_sz + strlen(direntry->d_name));					   // Change arquivo size
 			strcpy(arquivo + cont, direntry->d_name);//Add file found to arquivo
-			//printf("%s %lu\n", arquivo, cont);
+			//printf("OP:%s %lu\n", arquivo, cont);
 			se_dir_open(find, arquivo);//Recursion
+			//printf("CL:%s %lu\n", arquivo, cont);
 			//cont[0] = '\0'; //To continue from here
 		}
 		closedir(dir);
@@ -193,32 +214,24 @@ found_data simple_search(const char *str, const char *find){
 }
 void busca_no_arquivo(char *patern, char* param){ //search and print on patern found
 		unsigned long long patern_len = strlen(patern);//Will be modified by search with '*'
-		//char line[LINESZ], pt[3][LINESZ];
 		size_t line_sz = 16, pt_sz = 16, ptorew, pt_to;
-		char *line = malloc(line_sz), *pt[3] = {malloc(pt_sz), malloc(pt_sz), malloc(pt_sz)};
+		char *line /*= malloc(line_sz)*/, *pt[3] = {malloc(pt_sz), malloc(pt_sz), malloc(pt_sz)}, *pt2print;
 		found_data tmp;//var to save return of search
 		matches = 0;// Matches per file
 		arquivo_atual = fopen(param, "r");// open file
-		if(param == NULL) arquivo_atual = stdin;// if NULL read stdin
+		if(param == NULL){
+			arquivo_atual = stdin; // if NULL read stdin
+			file_name = 0;//Force to not shown on stdin
+		}
 		if (arquivo_atual == NULL){// if cant open
 			printf("CAN'T OPEN %s\n", param);
 			return;
 		}
 		if(file_without)
 			open_without(param, 1); //Open file to write
-		// fseek(arquivo_atual, ftell(arquivo_atual), SEEK_END);
-		// line_sz = ftell(arquivo_atual);
-		// printf("LSZ %lu\n", line_sz*2);
-		// line = realloc(line, line_sz * 2);
-		// rewind(arquivo_atual);
-		//printf("HERE\n");
-		ptorew = ftell(arquivo_atual);
-		fscanf(arquivo_atual, "%*[^\n]%*c");
-		pt_to = ftell(arquivo_atual) - ptorew;
-		fseek(arquivo_atual, ptorew, SEEK_SET);
-		pt_change((char **)pt, &pt_sz, line_sz);//pt_to);
-		//printf("HERE2\n");
-		for (int i = 0; fgets(line, line_sz-1, arquivo_atual) != NULL; ++i){
+		for (int i = 0; dyn_fgets(pt, &pt_sz, arquivo_atual)/*fgets(line, line_sz-1, arquivo_atual)*/ != EOF; ++i){
+			//printf("ln %p %p %p\n", pt[0], pt[1], pt[2]);
+			line = pt[2];//update after dyn_fgets
 			long linepos = 0;
 			tmp = simple_search(line, patern);
 			patern_len = tmp.size;//update size
@@ -237,20 +250,23 @@ void busca_no_arquivo(char *patern, char* param){ //search and print on patern f
 					////////////pt_change((char**)pt, &pt_sz, strlen(line));// first realloc
 					//Copy str before
 					//memcpy(pt[0], line + linepos, sizeof(char) * ( posi - line - linepos));
+					//pt[0][0] = '\0';//if strncpy receive size 0 don't remove the string before
 					strncpy(pt[0], line + linepos, posi - line - linepos);
 					//Add EOL //strncpy 
-					//pt[0][posi - line - linepos] = '\0';
+					pt[0][posi - line - linepos] = '\0';
 					linepos = posi - line;//New linepos, before patern
 					//Copy patern
 					//memcpy(pt[1], line + linepos, sizeof(char) * patern_len);
+					//pt[1][0] = '\0'; //if strncpy receive size 0 don't remove the string before
 					strncpy(pt[1], line + linepos, patern_len);
 					//add EOL
-					//pt[1][patern_len] = 0;
+					pt[1][patern_len] = 0;
 					linepos += patern_len;//New linepos, after patern
 					//Copy rest of line
 					//memcpy(pt[2], line + linepos , sizeof(char) * (strlen(line + linepos) + 1));
-					strcpy(pt[2], line + linepos);
-					//add EOL
+					//strcpy(pt[2], line + linepos);
+					////add EOL
+					pt2print = line + linepos;
 					//pt[2][strlen(line + linepos) + 1] = 0;//Fixed bug last thar dont show
 					//Print with color
 					if (echonfind)
@@ -262,37 +278,22 @@ void busca_no_arquivo(char *patern, char* param){ //search and print on patern f
 					posi = tmp.posi;//strstr(line + linepos, patern);
 				}
 				if (echonfind)
-					printf("%s", pt[2]); //Print end
+					printf("%s", pt2print); //Print end
 				if(file_without)//Write after
-					write_without(pt[2]);
+					write_without(pt2print);
 			}else{//Not found
-				//printf("HERE NFO\n");
 				if (file_without) //Write line
 					write_without(line);
 			}
 			if(maxlines > 0 && i+1 >= maxlines) break;//stop afet max lines
-			//printf("HERE3\n");
-			// ptorew = ftell(arquivo_atual);
-			// if(fscanf(arquivo_atual, "%*[^\n]%*c") != EOF){
-			// 	//printf("HERE5\n");
-			// 	pt_to = ftell(arquivo_atual) - ptorew;
-			// 	//printf("HERE6, %p, %lu %lu\n", pt, pt_sz, pt_to);
-			// 	pt_change((char **)pt, &pt_sz, pt_to);
-			// 	//printf("HERE7\n");
-			// }
-			// fseek(arquivo_atual, ptorew, SEEK_SET);
-			//printf("HERE4\n");
 		}
-		//printf("HERE NFO 2\n");
 		if (file_without)
 			open_without(NULL, 0); //Close file to write
-		//printf("HERE NFO 3 %p\n", arquivo_atual);
 		fclose(arquivo_atual);
-		free(line);
 		for(int i = 0; i < 3; ++i)
 			free(pt[i]);
-		//printf("HERE NFO 4\n");
 		allmatches += matches;//Count all matches
+		files_count++;//Count files opened
 }
 void files_with_without_matches(int with, char *file){
 	if(with){
@@ -386,7 +387,7 @@ int main(int argc, char *argv[]){	// patern File1 ... Filen
 	if(!file_count)
 		busca_no_arquivo(find, NULL);
 	if(tcount){
-		printf("found %llu\n", allmatches);
+		printf("found %llu \tOn %llu files / %llu bytes\n", allmatches, files_count, bytes);
 	}
 }
 void chama_busca(char* find, char* argv){

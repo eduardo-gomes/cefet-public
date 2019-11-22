@@ -16,6 +16,7 @@ unsigned long long bytes = 0;
 /////////////////////////////////////////////////////////////////////////
 ///////////////////////////// Define default ////////////////////////////
 void load_du(){
+	//maxlines = 10000;
 	color_enable = 1;
 	file_name = on_line = 1;
 	//case_sensitive = 0;
@@ -25,7 +26,7 @@ void load_du(){
 void help(int type){//HELP
 	helped = 1;
 	char *version = \
-		"Du grep 0.1.2	 © All rights reserved";//nope
+		"Du grep 0.1.3	 © All rights reserved";//nope
 	char *help =
 		"USAGE: Dugrep [option] \"patern\"  File[1] ... File[n]\n"
 		"USAGE: Dugrep [option] \"patern\" For standard input\n"
@@ -79,20 +80,18 @@ char *color(int enable){
 /////////////////////////////////////////////////////////////////////////
 ////////////////////////////// malloc size //////////////////////////////
 ///(pointer to pointer that will change, pointer to actual size, to size)
-void change_to(char **var, unsigned long *atu, unsigned long to){
-	if(*atu <= to){
-		*atu = to*2;
-		//printf("%p to %lu %lu\n", *var, *atu, to);
-		char *old = *var;
-		*var = realloc(*var, *atu);
-		if(var == NULL){
-			*var = old;
-			printf("CAN'T REALLOC\n");
-		}
-	}else return;
-}
+// void change_to(char **var, unsigned long *atu, unsigned long to){
+// 	if(to < *atu*2/**atu *2 >= to*/){//Rule to change space
+// 		*atu = to*2;
+// 		char *old = *var;
+// 		//printf("%d st, to %lu\n", i, *atu);
+// 		old = realloc(old, *atu);
+// 		//printf("%d ed, to %lu\n", i, *atu);
+// 		if(old)*var = old;
+// 	}
+// }
 void pt_change(char **pt, unsigned long *atu, unsigned long to){
-	if(*atu <= to){
+	if(*atu *2 >= to){
 		*atu = to*2;
 		for(int i = 0; i < 3; ++i){
 			char *ptbackup = pt[i];
@@ -109,10 +108,10 @@ int dyn_fgets(char **pt3, unsigned long int *sz, FILE *inp){
 	char *str = pt3[2];//*pt[3] -> &pt -> ***pt3 -> **pt3[2] -> pt[2]
 	unsigned long int atu_sz = 0;
 	//char *lin = *str;
-	char read;
+	int read;
 	while(1){
-		read = fgetc(inp);
-		if (feof(inp)) return EOF;//End of file
+		read = fgetc(inp);//If EOF feof or read == EOF
+		if (feof(inp) || read == EOF) return EOF;//End of file
 		if ((atu_sz)*2 > *sz){//At least have double the space
 			//change_to(str, sz, atu_sz * 2);//Realoc to 2*atu_sz//change to alloc 4*atu_sz
 			pt_change(pt, sz, atu_sz*2);	 // up coment "/\"
@@ -128,21 +127,37 @@ int dyn_fgets(char **pt3, unsigned long int *sz, FILE *inp){
 }
 /////////////////////////////////////////////////////////////////////////
 ////////////////////////////// dir or file //////////////////////////////
-void chama_busca(char* , char*);
-void se_dir_open(char *find, char* diretorio){
+void chama_busca(char* ,const char*);
+void se_dir_open(char *find,const char* diretorio){
 	DIR* dir = opendir(diretorio);//Pointer to dir
 	struct dirent *direntry;//Pointer to something inside dir
-	//char arquivo[123456];//string of directory/file
-	unsigned long arquivo_sz = 16;
-	char *arquivo = malloc(arquivo_sz);
+	char *arquivo = malloc(8);//arquivo[123456];//string of directory/file
+	size_t arquivo_sz = 8;//NULL
 	if (dir != NULL){//If is directory
 		size_t dr_sz = strlen(diretorio);
-		change_to(&arquivo, &arquivo_sz, dr_sz);// Change arquivo size
+		//change_to(&arquivo, &arquivo_sz, dr_sz);// Change arquivo size
+		if(dr_sz * 2 > arquivo_sz){
+			char *old = arquivo;
+			old = realloc(old, dr_sz * 2);
+			if(old){
+				arquivo = old;
+				arquivo_sz = dr_sz*2;
+			}
+		}
 		sprintf(arquivo, "%s/", diretorio);
 		size_t cont = strlen(arquivo);//Pointer to end of directory on string
 		while((direntry = readdir(dir)) != NULL){// If has something inside
 			if(strcmp(direntry->d_name, ".") == 0 || strcmp(direntry->d_name, "..") == 0) continue;//skip (go to upper level and loop), "." ".."
-			change_to(&arquivo, &arquivo_sz, dr_sz + strlen(direntry->d_name));					   // Change arquivo size
+			size_t n_size = dr_sz + strlen(direntry->d_name);
+			//change_to(&arquivo, &arquivo_sz, n_size);					   // Change arquivo size
+			if(n_size * 2 > arquivo_sz){
+			char *old = arquivo;
+			old = realloc(old, n_size * 2);
+			if(old){
+				arquivo = old;
+				arquivo_sz = n_size*2;
+			}
+		}
 			strcpy(arquivo + cont, direntry->d_name);//Add file found to arquivo
 			//printf("OP:%s %lu\n", arquivo, cont);
 			se_dir_open(find, arquivo);//Recursion
@@ -157,7 +172,7 @@ void se_dir_open(char *find, char* diretorio){
 	free(arquivo);
 }
 FILE *output;
-void open_without(char *address, int open){
+void open_without(const char *address, int open){
 	if(open){
 		char nfilename[1234];
 		double tatu = time(NULL);
@@ -206,13 +221,11 @@ found_data simple_search(const char *str, const char *find){
 	if(searching == NULL){
 		to_return.posi = NULL;//Return null if don't match
 		to_return.size = 0;
-		//printf("NOT\n");
-	}//else printf("FUNCIONAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
-	//printf("END\n");
+	}
 	free(newfind);
 	return to_return;
 }
-void busca_no_arquivo(char *patern, char* param){ //search and print on patern found
+void busca_no_arquivo(char *patern,const char* param){ //search and print on patern found
 		unsigned long long patern_len = strlen(patern);//Will be modified by search with '*'
 		size_t line_sz = 16, pt_sz = 16, ptorew, pt_to;
 		char *line /*= malloc(line_sz)*/, *pt[3] = {malloc(pt_sz), malloc(pt_sz), malloc(pt_sz)}, *pt2print;
@@ -295,7 +308,7 @@ void busca_no_arquivo(char *patern, char* param){ //search and print on patern f
 		allmatches += matches;//Count all matches
 		files_count++;//Count files opened
 }
-void files_with_without_matches(int with, char *file){
+void files_with_without_matches(int with, const char *file){
 	if(with){
 		if(matches || listcount){
 			printf("%s%s%s", color(filenamecoloron), file, color(filenamecoloroff));//print match
@@ -390,7 +403,7 @@ int main(int argc, char *argv[]){	// patern File1 ... Filen
 		printf("found %llu \tOn %llu files / %llu bytes\n", allmatches, files_count, bytes);
 	}
 }
-void chama_busca(char* find, char* argv){
+void chama_busca(char* find, const char* argv){
 	busca_no_arquivo(find, argv);
 	if(listwith != -1) files_with_without_matches(listwith, argv);
 }

@@ -1,12 +1,12 @@
-#include <stdio.h>
 #define _GNU_SOURCE
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <dirent.h>
 #include <time.h>
 //#include <errno.h>
 #define qqcoisa "*"
-#define LINESZ 123456
+//#define LINESZ 123456
 #define filenamecoloron 'H'
 #define filenamecoloroff 'h'
 FILE *arquivo_atual;
@@ -26,7 +26,7 @@ void load_du(){
 void help(int type){//HELP
 	helped = 1;
 	char *version = \
-		"Du grep 0.1.3	 © All rights reserved";//nope
+		"Du grep 0.1.4	 © All rights reserved";//nope
 	char *help =
 		"USAGE: Dugrep [option] \"patern\"  File[1] ... File[n]\n"
 		"USAGE: Dugrep [option] \"patern\" For standard input\n"
@@ -80,42 +80,47 @@ char *color(int enable){
 /////////////////////////////////////////////////////////////////////////
 ////////////////////////////// malloc size //////////////////////////////
 ///(pointer to pointer that will change, pointer to actual size, to size)
-// void change_to(char **var, unsigned long *atu, unsigned long to){
-// 	if(to < *atu*2/**atu *2 >= to*/){//Rule to change space
-// 		*atu = to*2;
-// 		char *old = *var;
-// 		//printf("%d st, to %lu\n", i, *atu);
-// 		old = realloc(old, *atu);
-// 		//printf("%d ed, to %lu\n", i, *atu);
-// 		if(old)*var = old;
-// 	}
-// }
+void change_to(char **var, unsigned long *atu, unsigned long to){
+	if((*atu) + 5 < to){
+		*atu = to*2;
+		//printf("%p to %lu %lu\n", *var, *atu, to);
+		char *old = *var;
+		*var = realloc(*var, *atu);
+		if(var == NULL){
+			*var = old;
+			printf("CAN'T REALLOC\n");
+		}
+	}else return;
+}
 void pt_change(char **pt, unsigned long *atu, unsigned long to){
-	if(*atu *2 >= to){
+	if((*atu) + 5 <= to){
 		*atu = to*2;
 		for(int i = 0; i < 3; ++i){
 			char *ptbackup = pt[i];
-			//printf("%d st, to %lu\n", i, *atu);
 			ptbackup = realloc(ptbackup, *atu);
-			//printf("%d ed, to %lu\n", i, *atu);
 			if(ptbackup)pt[i] = ptbackup;
+			else printf("CAN'T REALLOC\n");
 		}
 	}
 }
 int dyn_fgets(char **pt3, unsigned long int *sz, FILE *inp){
-	//long int lsz = *sz;
-	char **pt = pt3;// work like original var
+	//char **pt = pt3;// work like original var
 	char *str = pt3[2];//*pt[3] -> &pt -> ***pt3 -> **pt3[2] -> pt[2]
 	unsigned long int atu_sz = 0;
 	//char *lin = *str;
-	int read;
+	char read;
+	int a = 0;
 	while(1){
-		read = fgetc(inp);//If EOF feof or read == EOF
-		if (feof(inp) || read == EOF) return EOF;//End of file
+		// if(a++ > 0xEDFFFFFF){
+		// 	printf("press F\n");
+		// 	return 1;
+		// }
+		//fscanf(inp, "%c", &read);//If EOF feof or read == EOF
+		if (fscanf(inp, "%c", &read) == EOF) return EOF;//End of file
 		if ((atu_sz)*2 > *sz){//At least have double the space
 			//change_to(str, sz, atu_sz * 2);//Realoc to 2*atu_sz//change to alloc 4*atu_sz
-			pt_change(pt, sz, atu_sz*2);	 // up coment "/\"
-			str = pt[2];					 //update
+			pt_change(pt3, sz, atu_sz*2);	 // up coment "/\"
+			str = pt3[2];					 //update
 		}
 		str[atu_sz++] = read;//read to str
 		if(read == '\n' || read == '\0'){//If end of line
@@ -135,29 +140,29 @@ void se_dir_open(char *find,const char* diretorio){
 	size_t arquivo_sz = 8;//NULL
 	if (dir != NULL){//If is directory
 		size_t dr_sz = strlen(diretorio);
-		//change_to(&arquivo, &arquivo_sz, dr_sz);// Change arquivo size
-		if(dr_sz * 2 > arquivo_sz){
-			char *old = arquivo;
-			old = realloc(old, dr_sz * 2);
-			if(old){
-				arquivo = old;
-				arquivo_sz = dr_sz*2;
-			}
-		}
+		change_to(&arquivo, &arquivo_sz, dr_sz);// Change arquivo size
+		// if(dr_sz * 2 > arquivo_sz){//Rule to realloc
+		// 	char *old = arquivo;
+		// 	old = realloc(old, dr_sz * 2);
+		// 	if(old){
+		// 		arquivo = old;
+		// 		arquivo_sz = dr_sz*2;
+		// 	}
+		// }
 		sprintf(arquivo, "%s/", diretorio);
 		size_t cont = strlen(arquivo);//Pointer to end of directory on string
 		while((direntry = readdir(dir)) != NULL){// If has something inside
 			if(strcmp(direntry->d_name, ".") == 0 || strcmp(direntry->d_name, "..") == 0) continue;//skip (go to upper level and loop), "." ".."
 			size_t n_size = dr_sz + strlen(direntry->d_name);
-			//change_to(&arquivo, &arquivo_sz, n_size);					   // Change arquivo size
-			if(n_size * 2 > arquivo_sz){
-			char *old = arquivo;
-			old = realloc(old, n_size * 2);
-			if(old){
-				arquivo = old;
-				arquivo_sz = n_size*2;
-			}
-		}
+			change_to(&arquivo, &arquivo_sz, n_size);					   // Change arquivo size
+			// if(n_size * 2 > arquivo_sz){//Rule to realloc
+			// 	char *old = arquivo;
+			// 	old = realloc(old, n_size * 2);
+			// 	if(old){
+			// 		arquivo = old;
+			// 		arquivo_sz = n_size*2;
+			// 	}
+			// }
 			strcpy(arquivo + cont, direntry->d_name);//Add file found to arquivo
 			//printf("OP:%s %lu\n", arquivo, cont);
 			se_dir_open(find, arquivo);//Recursion
@@ -166,6 +171,7 @@ void se_dir_open(char *find,const char* diretorio){
 		}
 		closedir(dir);
 	}else{//if isn't dir or don exist try to open as file
+		//printf("+***+*+*+*+*+*+* \t\t%s\n", diretorio);
 		chama_busca(find, diretorio);
 		//printf("FILE %s\n", arquivo);
 	}

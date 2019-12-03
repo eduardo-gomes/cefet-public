@@ -13,9 +13,15 @@ FILE *arquivo_atual;
 int file_name = -1, on_line = -1, invalid = 0, helped = 0, prt_color = 'R', color_enable = 0, echonfind = 1, listwith = -1, listcount = 0, maxlines = -1, out_mode = 0/*0 = stdout, 1 = file with random name*/, case_sensitive = 1, file_without = 0, tcount = 0;
 long long  matches = 0, allmatches = 0, files_count = 0;
 unsigned long long bytes = 0;
+size_t pt_sz = 16;
+char *pt[3];
+size_t arquivo_sz = 16;
+char *arquivo;
 /////////////////////////////////////////////////////////////////////////
 ///////////////////////////// Define default ////////////////////////////
-void load_du(){
+void
+load_du()
+{
 	//maxlines = 10000;
 	color_enable = 1;
 	file_name = on_line = 1;
@@ -26,7 +32,7 @@ void load_du(){
 void help(int type){//HELP
 	helped = 1;
 	char *version = \
-		"Du grep 0.1.4	 © All rights reserved";//nope
+		"Du grep 0.1.5	 © All rights reserved";//nope
 	char *help =
 		"USAGE: Dugrep [option] \"patern\"  File[1] ... File[n]\n"
 		"USAGE: Dugrep [option] \"patern\" For standard input\n"
@@ -136,8 +142,8 @@ void chama_busca(char* ,const char*);
 void se_dir_open(char *find,const char* diretorio){
 	DIR* dir = opendir(diretorio);//Pointer to dir
 	struct dirent *direntry;//Pointer to something inside dir
-	char *arquivo = malloc(8);//arquivo[123456];//string of directory/file
-	size_t arquivo_sz = 8;//NULL
+	// char *arquivo = malloc(8);//arquivo[123456];//string of directory/file
+	// size_t arquivo_sz = 8;//NULL
 	if (dir != NULL){//If is directory
 		size_t dr_sz = strlen(diretorio);
 		change_to(&arquivo, &arquivo_sz, dr_sz);// Change arquivo size
@@ -175,7 +181,7 @@ void se_dir_open(char *find,const char* diretorio){
 		chama_busca(find, diretorio);
 		//printf("FILE %s\n", arquivo);
 	}
-	free(arquivo);
+	// free(arquivo);
 }
 FILE *output;
 void open_without(const char *address, int open){
@@ -233,8 +239,8 @@ found_data simple_search(const char *str, const char *find){
 }
 void busca_no_arquivo(char *patern,const char* param){ //search and print on patern found
 		unsigned long long patern_len = strlen(patern);//Will be modified by search with '*'
-		size_t line_sz = 16, pt_sz = 16, ptorew, pt_to;
-		char *line /*= malloc(line_sz)*/, *pt[3] = {malloc(pt_sz), malloc(pt_sz), malloc(pt_sz)}, *pt2print;
+		size_t line_sz = 16/*, pt_sz = 16*/, ptorew, pt_to;
+		char *line /*= malloc(line_sz)*//*, *pt[3] = {malloc(pt_sz), malloc(pt_sz), malloc(pt_sz)}*/, *pt2print;
 		found_data tmp;//var to save return of search
 		matches = 0;// Matches per file
 		arquivo_atual = fopen(param, "r");// open file
@@ -310,7 +316,8 @@ void busca_no_arquivo(char *patern,const char* param){ //search and print on pat
 			open_without(NULL, 0); //Close file to write
 		fclose(arquivo_atual);
 		for(int i = 0; i < 3; ++i)
-			free(pt[i]);
+			pt[i][0] = '\0';
+			// free(pt[i]);
 		allmatches += matches;//Count all matches
 		files_count++;//Count files opened
 }
@@ -334,7 +341,10 @@ int main(int argc, char *argv[]){	// patern File1 ... Filen
 	//system("ls > 0.txt");
 									//	arg1	arg2	arg(argc-1)
 	int params = 0, stop = 0;
-
+	for(int i = 0; i < 3; ++i)
+		pt[i] = malloc(pt_sz);
+	arquivo = malloc(arquivo_sz);
+	arquivo[0] = '\0';
 	while(params + 1 < argc && argv[1+params][0] == '-'){// le parametros
 		if (strcmp(argv[1 + params], "--help") == 0 || strcmp(argv[1 + params], "-?") == 0){
 			help(0);													  //Help
@@ -408,6 +418,9 @@ int main(int argc, char *argv[]){	// patern File1 ... Filen
 	if(tcount){
 		printf("found %llu \tOn %llu files / %llu bytes\n", allmatches, files_count, bytes);
 	}
+	for(int i = 0; i < 3; ++i)
+		free(pt[i]);
+	free(arquivo);
 }
 void chama_busca(char* find, const char* argv){
 	busca_no_arquivo(find, argv);

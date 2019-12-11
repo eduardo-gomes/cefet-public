@@ -17,22 +17,23 @@ size_t pt_sz = 16;
 char *pt[3];
 size_t arquivo_sz = 16;
 char *arquivo;
+double tatu;
 /////////////////////////////////////////////////////////////////////////
 ///////////////////////////// Define default ////////////////////////////
-void
-load_du()
-{
-	//maxlines = 10000;
-	color_enable = 1;
-	file_name = on_line = 1;
-	//case_sensitive = 0;
-}
+// void
+// load_du()
+// {
+// 	//maxlines = 10000;
+// 	color_enable = 1;
+// 	file_name = on_line = 1;
+// 	//case_sensitive = 0;
+// }
 /////////////////////////////////////////////////////////////////////////
 /////////////////////////////// TO PRINT ////////////////////////////////
 void help(int type){//HELP
 	helped = 1;
 	char *version = \
-		"Du grep 0.1.5	 © All rights reserved";//nope
+		"Du grep 0.1.6	 © All rights reserved";//nope
 	char *help =
 		"USAGE: Dugrep [option] \"patern\"  File[1] ... File[n]\n"
 		"USAGE: Dugrep [option] \"patern\" For standard input\n"
@@ -40,6 +41,7 @@ void help(int type){//HELP
 		"\n"
 		"\tOptions:\n"
 		"\t\t-?, --help :Show this\n"
+		"\t\t--desc :Show program info\n"
 		"\t\t-v : Display version\n"
 		"\t\t-H, --with-filename :Show File name, line and col first patern found (Default with multiple files)\n"
 		"\t\t-h, --no-filename :Dont File name, line and col first patern found (Default with single file)\n"
@@ -55,8 +57,43 @@ void help(int type){//HELP
 		"\t\t--color= :highlight color, avaliable R - red, B - Blue, M - magenta, N - no color\n"
 		"\t\t--no_color :No color\n"
 		"\t\tWIP\n";
+	char *desc =
+		"Busca:\n"
+		"\t-i, --case_insensitive, faz a busca ignorando a diferença entre maiúsculo e minúsculo\n"
+		"\t-m=x, --max-count=x, x é um inteiro que indica que a busca será realizada até a linha x\n"
+		"\n"
+		"\n"
+		"exibição:\n"
+		"A saída de cada ocorrência é modificada pelos seguintes parâmetros\n"
+		"\t--color=x, x é uma letra que indica a cor da ocorrência e habilita a saída de cores no terminal. Veja cores disponiveis usando \t--help ou -?\n"
+		"\t--no-color, desabilita a utilização de cores\n"
+		"\t-H, --with-filename, força a impressão do nome do arquivo, exceto se for a entrada padrão\n"
+		"\t-h, --no-filename, força a omissão do nome do arquivo\n"
+		"\n"
+		"Os seguintes argumentos desabilitam a saída de cada ocorrência, que poderá ser reativada utilizando --echo\n"
+		"\t-c, --count, imprime o nome de cada arquivo e o número de ocorrências encontradas em cada\n"
+		"\t-L, imprime o nome de arquivos sem nenhuma ocorrência\n"
+		"\t-l, imprime o nome de arquivos com ocorrência\n"
+		"\t--total-count, no fim da execução do programa imprime o total de ocorrências e o número de arquivos onde foi procurado\n"
+		"\n"
+		"Remoção:\n"
+		"\t-d, cria uma copia do arquivo removendo todas as ocorrências, e exibe o sulfixo do nome dos novos arquivos\n"
+		"\n"
+		"Info:\n"
+		"Ao receber algum desses argumentos o programa é finalizado sem processar a busca\n"
+		"\t--help, -? exibe uma descrição de cada argumento\n"
+		"\t--desc, exibe este texto\n"
+		"\n"
+		"Uso:\n"
+		"\tprograma [argumentos] buscar [arquivos]\n"
+		"\ta utilização de argumentos é opcional\n"
+		"\tbuscar: padrão que será procurado utiliza se * para indicar qualquer conteúdo entre duas strings\n"
+		"\tarquivos: é opcional, caso não seja indicado o programa utilizará a entrada padrão, se for um diretório será processado todas os arquivos e diretório dentro deste, e ao indicar mais de um o programa irá imprimir o nome do arquivo e a linha onde foi encontrada a ocorrência\n"
+		"\n";
 	if(type == 'v'){
 		printf("%s\n", version);
+	}else if(type == 'd'){
+		printf("%s\n", desc);
 	}else{
 		printf("%s", help);
 	}
@@ -82,6 +119,16 @@ char *color(int enable){
 			return norm;
 	}else
 		return not;
+}
+void multiple_default(int isdir){
+	if(file_name == -1){// if not defined
+		if(isdir) file_name = 1; //if multiple files
+		else file_name = 0; //if single
+	}
+	if(on_line == -1){// if not defined
+		on_line = file_name;
+	}
+	return;
 }
 /////////////////////////////////////////////////////////////////////////
 ////////////////////////////// malloc size //////////////////////////////
@@ -110,18 +157,11 @@ void pt_change(char **pt, unsigned long *atu, unsigned long to){
 	}
 }
 int dyn_fgets(char **pt3, unsigned long int *sz, FILE *inp){
-	//char **pt = pt3;// work like original var
-	char *str = pt3[2];//*pt[3] -> &pt -> ***pt3 -> **pt3[2] -> pt[2]
+	char *str = pt3[2];
 	unsigned long int atu_sz = 0;
-	//char *lin = *str;
 	char read;
 	int a = 0;
 	while(1){
-		// if(a++ > 0xEDFFFFFF){
-		// 	printf("press F\n");
-		// 	return 1;
-		// }
-		//fscanf(inp, "%c", &read);//If EOF feof or read == EOF
 		if (fscanf(inp, "%c", &read) == EOF) return EOF;//End of file
 		if ((atu_sz)*2 > *sz){//At least have double the space
 			//change_to(str, sz, atu_sz * 2);//Realoc to 2*atu_sz//change to alloc 4*atu_sz
@@ -142,53 +182,30 @@ void chama_busca(char* ,const char*);
 void se_dir_open(char *find,const char* diretorio){
 	DIR* dir = opendir(diretorio);//Pointer to dir
 	struct dirent *direntry;//Pointer to something inside dir
-	// char *arquivo = malloc(8);//arquivo[123456];//string of directory/file
-	// size_t arquivo_sz = 8;//NULL
+	if(file_name == -1)multiple_default(dir != NULL);
 	if (dir != NULL){//If is directory
 		size_t dr_sz = strlen(diretorio);
 		change_to(&arquivo, &arquivo_sz, dr_sz);// Change arquivo size
-		// if(dr_sz * 2 > arquivo_sz){//Rule to realloc
-		// 	char *old = arquivo;
-		// 	old = realloc(old, dr_sz * 2);
-		// 	if(old){
-		// 		arquivo = old;
-		// 		arquivo_sz = dr_sz*2;
-		// 	}
-		// }
 		sprintf(arquivo, "%s/", diretorio);
 		size_t cont = strlen(arquivo);//Pointer to end of directory on string
 		while((direntry = readdir(dir)) != NULL){// If has something inside
 			if(strcmp(direntry->d_name, ".") == 0 || strcmp(direntry->d_name, "..") == 0) continue;//skip (go to upper level and loop), "." ".."
 			size_t n_size = dr_sz + strlen(direntry->d_name);
 			change_to(&arquivo, &arquivo_sz, n_size);					   // Change arquivo size
-			// if(n_size * 2 > arquivo_sz){//Rule to realloc
-			// 	char *old = arquivo;
-			// 	old = realloc(old, n_size * 2);
-			// 	if(old){
-			// 		arquivo = old;
-			// 		arquivo_sz = n_size*2;
-			// 	}
-			// }
 			strcpy(arquivo + cont, direntry->d_name);//Add file found to arquivo
-			//printf("OP:%s %lu\n", arquivo, cont);
 			se_dir_open(find, arquivo);//Recursion
-			//printf("CL:%s %lu\n", arquivo, cont);
-			//cont[0] = '\0'; //To continue from here
 		}
 		closedir(dir);
 	}else{//if isn't dir or don exist try to open as file
-		//printf("+***+*+*+*+*+*+* \t\t%s\n", diretorio);
 		chama_busca(find, diretorio);
-		//printf("FILE %s\n", arquivo);
 	}
-	// free(arquivo);
 }
 FILE *output;
 void open_without(const char *address, int open){
 	if(open){
 		char nfilename[1234];
-		double tatu = time(NULL);
 		sprintf(nfilename, "%s_%.lf", address, tatu);
+		// printf("%s_%.lf\n", address, tatu);
 		output = fopen(nfilename, "a");
 	}else{
 		fclose(output);
@@ -221,14 +238,10 @@ found_data simple_search(const char *str, const char *find){
 	if(searching != NULL){//if find first continue
 		do{
 			searching = strcase(searching + szlastok, ate);//continue search
-			//printf("(%s::%s)\n", searching, ate);
-			//printf("HERE4\n");
 			szlastok = strlen(ate);// update before changing
 			ate = strtok(NULL, qqcoisa);//update token
-			//printf("%p\n", ate);
 		}while(ate != NULL && searching != NULL && *ate != '\n'/*if end*/);// continue if token continue and find
 	}
-	//printf("HERE3\n");
 	to_return.size = (unsigned long long)(searching + szlastok) - sz; // update size
 	if(searching == NULL){
 		to_return.posi = NULL;//Return null if don't match
@@ -271,28 +284,19 @@ void busca_no_arquivo(char *patern,const char* param){ //search and print on pat
 				//Split ocorences and COLOR
 				while(posi != NULL){// Split to insert color
 					matches++;// count ocorences
-					//printf("HERE\n");
-					////////////pt_change((char**)pt, &pt_sz, strlen(line));// first realloc
 					//Copy str before
-					//memcpy(pt[0], line + linepos, sizeof(char) * ( posi - line - linepos));
-					//pt[0][0] = '\0';//if strncpy receive size 0 don't remove the string before
 					strncpy(pt[0], line + linepos, posi - line - linepos);
 					//Add EOL //strncpy 
 					pt[0][posi - line - linepos] = '\0';
 					linepos = posi - line;//New linepos, before patern
 					//Copy patern
-					//memcpy(pt[1], line + linepos, sizeof(char) * patern_len);
-					//pt[1][0] = '\0'; //if strncpy receive size 0 don't remove the string before
 					strncpy(pt[1], line + linepos, patern_len);
 					//add EOL
 					pt[1][patern_len] = 0;
 					linepos += patern_len;//New linepos, after patern
 					//Copy rest of line
-					//memcpy(pt[2], line + linepos , sizeof(char) * (strlen(line + linepos) + 1));
-					//strcpy(pt[2], line + linepos);
 					////add EOL
 					pt2print = line + linepos;
-					//pt[2][strlen(line + linepos) + 1] = 0;//Fixed bug last thar dont show
 					//Print with color
 					if (echonfind)
 						printf("%s%s%s%s", pt[0], color(1), pt[1], color(0));
@@ -337,10 +341,9 @@ void files_with_without_matches(int with, const char *file){
 /////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char *argv[]){	// patern File1 ... Filen
-	load_du();
-	//system("ls > 0.txt");
 									//	arg1	arg2	arg(argc-1)
 	int params = 0, stop = 0;
+	tatu = time(NULL);
 	for(int i = 0; i < 3; ++i)
 		pt[i] = malloc(pt_sz);
 	arquivo = malloc(arquivo_sz);
@@ -349,6 +352,9 @@ int main(int argc, char *argv[]){	// patern File1 ... Filen
 		if (strcmp(argv[1 + params], "--help") == 0 || strcmp(argv[1 + params], "-?") == 0){
 			help(0);													  //Help
 			stop = 1;//Dont run
+		}else if(strcmp(argv[1+params], "--desc") == 0){
+			help('d');
+			stop = 1;
 		}
 		else if (strcmp(argv[1 + params], "--with-filename") == 0 || strcmp(argv[1 + params], "-H") == 0)
 			file_name = 1;								  //Print File info
@@ -396,7 +402,7 @@ int main(int argc, char *argv[]){	// patern File1 ... Filen
 	int first_file = 2 + params, file_count = -first_file +argc;
 	if(file_name == -1){// if not defined
 		if(file_count > 1) file_name = 1; //if multiple files
-		else file_name = 0; //if single
+		//else file_name = 0; //if single
 	}
 	if(on_line == -1){// if not defined
 		on_line = file_name;
@@ -418,6 +424,8 @@ int main(int argc, char *argv[]){	// patern File1 ... Filen
 	if(tcount){
 		printf("found %llu \tOn %llu files / %llu bytes\n", allmatches, files_count, bytes);
 	}
+	if(file_without)
+		printf("Arquivos gerados terminam com _%.lf\n",tatu);
 	for(int i = 0; i < 3; ++i)
 		free(pt[i]);
 	free(arquivo);

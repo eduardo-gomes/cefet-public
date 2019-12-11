@@ -1,0 +1,31 @@
+Busca:
+		-i, --case_insensitive, faz a busca ignorando a diferença entre maiúsculo e minúsculo
+		-m=x, --max-count=x, x é um inteiro que indica que a busca será realizada até a linha x
+
+
+exibição:
+A saída de cada ocorrência é modificada pelos seguintes parâmetros
+		--color=x, x é uma letra que indica a cor da ocorrência e habilita a saída de cores no terminal. Veja cores disponiveis usando  --help ou -?
+		--no-color, desabilita a utilização de cores
+		-H, --with-filename, força a impressão do nome do arquivo, exceto se for a entrada padrão
+		-h, --no-filename, força a omissão do nome do arquivo
+
+Os seguintes argumentos desabilitam a saída de cada ocorrência, que poderá ser reativada utilizando --echo
+		-c, --count, imprime o nome de cada arquivo e o número de ocorrências encontradas em cada
+		-L, imprime o nome de arquivos sem nenhuma ocorrência
+		-l, imprime o nome de arquivos com ocorrência
+		--total-count, no fim da execução do programa imprime o total de ocorrências e o número de arquivos onde foi procurado
+
+Remoção:
+		-d, cria uma copia do arquivo removendo todas as ocorrências, e exibe o sulfixo do nome dos novos arquivos
+
+Info:
+Ao receber algum desses argumentos o programa é finalizado sem processar a busca
+		--help, -? exibe uma descrição de cada argumento
+		--desc, exibe este texto
+
+Uso:
+		programa [argumentos] buscar [arquivos]
+		a utilização de argumentos é opcional
+		buscar: padrão que será procurado utiliza se * para indicar qualquer conteúdo entre duas strings
+		arquivos: é opcional, caso não seja indicado o programa utilizará a entrada padrão, se for um diretório será processado todas os arquivos e diretório dentro deste, e ao indicar mais de um o programa irá imprimir o nome do arquivo e a linha onde foi encontrada a ocorrência
